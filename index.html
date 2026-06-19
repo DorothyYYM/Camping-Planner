@@ -407,6 +407,7 @@ function saveEvent(di, ei, item) {
   defaultDays[di].events[ei].time = item.querySelector('.tl-time').innerText.trim();
   defaultDays[di].events[ei].title = item.querySelector('.tl-title').innerText.trim();
   defaultDays[di].events[ei].desc = item.querySelector('.tl-desc').innerText.trim();
+  scheduleSave();
 }
 
 function addEvent(di) {
@@ -442,12 +443,14 @@ function addDay() {
   window.getSelection().removeAllRanges();
   window.getSelection().addRange(range);
   last.scrollIntoView({ behavior:'smooth', block:'start' });
+  scheduleSave();
 }
 
 function removeDay(di) {
   if (defaultDays.length <= 1) return;
   defaultDays.splice(di, 1);
   renderItinerary();
+  scheduleSave();
 }
 
 
@@ -511,6 +514,7 @@ function buildCheckGroupEl(gridId, gi, group, isGear) {
     window.getSelection().addRange(range);
     updateGroupCount(gridId, gi, group.items.length);
     if (isGear) updateGearProgress();
+    scheduleSave();
   };
   div.appendChild(addBtn);
   updateGroupCount(gridId, gi, group.items.length);
@@ -531,11 +535,11 @@ function buildCheckItemEl(gridId, gi, ii, item, isGear) {
     <button class="item-del" title="删除">✕</button>`;
   // save edits back to data
   const nameEl = row.querySelector('.item-name');
-  nameEl.addEventListener('input', () => { item.l = nameEl.innerText.trim(); });
+  nameEl.addEventListener('input', () => { item.l = nameEl.innerText.trim(); scheduleSave(); });
   nameEl.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); nameEl.blur(); } });
   nameEl.addEventListener('blur', () => { nameEl.style.outline = ''; nameEl.style.background = ''; });
   const noteEl = row.querySelector('.item-note');
-  noteEl.addEventListener('input', () => { item.n = noteEl.innerText.trim(); });
+  noteEl.addEventListener('input', () => { item.n = noteEl.innerText.trim(); scheduleSave(); });
   noteEl.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); noteEl.blur(); } });
   noteEl.addEventListener('blur', () => { noteEl.style.outline = ''; noteEl.style.background = ''; });
   // drag logic
@@ -579,10 +583,12 @@ function buildCheckItemEl(gridId, gi, ii, item, isGear) {
     row.querySelector('.check-label').classList.toggle('done', this.checked);
     updateGroupCount(gridId, gi, (isGear ? gearGroups : foodGroups)[gi].items.length);
     if (isGear) updateGearProgress();
+    scheduleSave();
   });
   row.querySelector('.item-del').addEventListener('click', () => {
     (isGear ? gearGroups : foodGroups)[gi].items.splice(ii, 1);
     rebuildCheckGrid(gridId, isGear ? gearGroups : foodGroups, isGear);
+    scheduleSave();
   });
 
   return row;
@@ -688,6 +694,7 @@ function buildMealRow(di, mi, m) {
   row.querySelector('.row-del').addEventListener('click', () => {
     defaultMealDays[di].meals.splice(mi, 1);
     renderMeals();
+    scheduleSave();
   });
   return row;
 }
@@ -726,6 +733,7 @@ function addTip() {
 function removeTip(ti) {
   defaultTips.splice(ti, 1);
   renderTips();
+  scheduleSave();
 }
 
 function switchTab(name, btn) {
@@ -790,12 +798,87 @@ function importData(event) {
   event.target.value = '';
 }
 
+// ── Auto Save ──
+const STORAGE_KEY = 'camping-planner-data';
+let saveTimer = null;
+
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveToLocal, 800);
+}
+
+function saveToLocal() {
+  const data = {
+    days: defaultDays,
+    gearGroups,
+    foodGroups,
+    mealDays: defaultMealDays,
+    tips: defaultTips,
+    checks: {},
+  };
+  document.querySelectorAll('input[type=checkbox]').forEach(cb => {
+    if (cb.id) data.checks[cb.id] = cb.checked;
+  });
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    showSaveIndicator();
+  } catch(e) {}
+}
+
+function loadFromLocal() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (!saved) return false;
+    const data = JSON.parse(saved);
+    if (data.days) defaultDays.splice(0, defaultDays.length, ...data.days);
+    if (data.gearGroups) gearGroups.splice(0, gearGroups.length, ...data.gearGroups);
+    if (data.foodGroups) foodGroups.splice(0, foodGroups.length, ...data.foodGroups);
+    if (data.mealDays) defaultMealDays.splice(0, defaultMealDays.length, ...data.mealDays);
+    if (data.tips) defaultTips.splice(0, defaultTips.length, ...data.tips);
+    return data.checks || {};
+  } catch(e) { return false; }
+}
+
+function showSaveIndicator() {
+  let el = document.getElementById('save-indicator');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'save-indicator';
+    el.style.cssText = 'font-size:11px;color:#1D9E75;margin-top:4px;height:16px;';
+    document.querySelector('.header').appendChild(el);
+  }
+  el.textContent = '✓ 已自动保存';
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => { el.textContent = ''; }, 2000);
+}
+
+// Hook scheduleSave into all data-modifying functions
+const _origSaveEvent = typeof saveEvent !== 'undefined' ? saveEvent : null;
+
 // ── Init ──
+const savedChecks = loadFromLocal();
 renderItinerary();
 rebuildCheckGrid('gear-grid', gearGroups, true);
 rebuildCheckGrid('food-grid', foodGroups, false);
 renderMeals();
 renderTips();
+// Restore saved checkbox states
+if (savedChecks) {
+  Object.entries(savedChecks).forEach(([id, checked]) => {
+    const cb = document.getElementById(id);
+    if (cb) {
+      cb.checked = checked;
+      if (checked) cb.closest('.check-item')?.querySelector('.check-label')?.classList.add('done');
+    }
+  });
+  updateGearProgress();
+  gearGroups.forEach((_,gi) => updateGroupCount('gear-grid', gi, gearGroups[gi].items.length));
+}
+
+// ── Global auto-save: catch everything ──
+document.addEventListener('input', scheduleSave);
+document.addEventListener('change', scheduleSave);
+document.addEventListener('click', scheduleSave);
 </script>
 </body>
 </html>
