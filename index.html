@@ -94,6 +94,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 .add-tip-btn:hover { background: #f5f5f0; color: #555; }
 .reset-btn { margin-top: 14px; padding: 7px 16px; border: 1px solid #ddd; border-radius: 8px; background: transparent; color: #888; font-size: 13px; cursor: pointer; }
 .reset-btn:hover { background: #f0f0ec; }
+.export-bar { display: flex; gap: 8px; align-items: center; background: #fff; border: 1px solid #e8e8e4; border-radius: 10px; padding: 10px 14px; margin-bottom: 20px; flex-wrap: wrap; }
+.export-bar span { font-size: 13px; color: #555; flex: 1; min-width: 120px; }
+.btn-export { padding: 7px 16px; border: none; border-radius: 8px; background: #1D9E75; color: #fff; font-size: 13px; cursor: pointer; font-weight: 500; }
+.btn-export:hover { background: #178a63; }
+.btn-import { padding: 7px 16px; border: 1px solid #1D9E75; border-radius: 8px; background: transparent; color: #1D9E75; font-size: 13px; cursor: pointer; font-weight: 500; }
+.btn-import:hover { background: #f0faf6; }
 @media (max-width: 540px) { .two-col { grid-template-columns: 1fr; } .checklist-grid { grid-template-columns: 1fr; } .tl-item { grid-template-columns: 16px 64px 1fr 28px; } }
 </style>
 </head>
@@ -110,6 +116,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
     <button class="tab" onclick="switchTab('gear',this)">🎒 装备清单</button>
     <button class="tab" onclick="switchTab('food',this)">🍳 食物计划</button>
     <button class="tab" onclick="switchTab('tips',this)">💡 注意事项</button>
+  </div>
+
+  <!-- 导出/导入 -->
+  <div class="export-bar">
+    <span>💾 备份数据，防止浏览器清除后丢失</span>
+    <button class="btn-export" onclick="exportData()">⬇ 导出备份</button>
+    <button class="btn-import" onclick="document.getElementById('import-input').click()">⬆ 导入恢复</button>
+    <input type="file" id="import-input" accept=".json" style="display:none" onchange="importData(event)">
   </div>
 
   <!-- 行程 -->
@@ -719,6 +733,61 @@ function switchTab(name, btn) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
   btn.classList.add('active');
+}
+
+// ── Export / Import ──
+function exportData() {
+  const data = {
+    days: defaultDays,
+    gearGroups,
+    foodGroups,
+    mealDays: defaultMealDays,
+    tips: defaultTips,
+    checks: {},
+    exportedAt: new Date().toISOString(),
+  };
+  document.querySelectorAll('input[type=checkbox]').forEach(cb => {
+    if (cb.id) data.checks[cb.id] = cb.checked;
+  });
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const date = new Date().toISOString().slice(0,10);
+  a.download = `camping-backup-${date}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (data.days) defaultDays.splice(0, defaultDays.length, ...data.days);
+      if (data.gearGroups) gearGroups.splice(0, gearGroups.length, ...data.gearGroups);
+      if (data.foodGroups) foodGroups.splice(0, foodGroups.length, ...data.foodGroups);
+      if (data.mealDays) defaultMealDays.splice(0, defaultMealDays.length, ...data.mealDays);
+      if (data.tips) defaultTips.splice(0, defaultTips.length, ...data.tips);
+      renderItinerary();
+      rebuildCheckGrid('gear-grid', gearGroups, true);
+      rebuildCheckGrid('food-grid', foodGroups, false);
+      renderMeals();
+      renderTips();
+      if (data.checks) {
+        Object.entries(data.checks).forEach(([id, checked]) => {
+          const cb = document.getElementById(id);
+          if (cb) { cb.checked = checked; cb.closest('.check-item')?.querySelector('.check-label')?.classList.toggle('done', checked); }
+        });
+      }
+      updateGearProgress();
+      alert('✅ 导入成功！');
+    } catch(err) { alert('导入失败，请确认文件格式正确。'); }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
 }
 
 // ── Init ──
