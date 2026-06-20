@@ -443,14 +443,14 @@ function addDay() {
   window.getSelection().removeAllRanges();
   window.getSelection().addRange(range);
   last.scrollIntoView({ behavior:'smooth', block:'start' });
-  scheduleSave();
+  saveToLocal();
 }
 
 function removeDay(di) {
   if (defaultDays.length <= 1) return;
   defaultDays.splice(di, 1);
   renderItinerary();
-  scheduleSave();
+  saveToLocal();
 }
 
 
@@ -514,7 +514,7 @@ function buildCheckGroupEl(gridId, gi, group, isGear) {
     window.getSelection().addRange(range);
     updateGroupCount(gridId, gi, group.items.length);
     if (isGear) updateGearProgress();
-    scheduleSave();
+    saveToLocal();
   };
   div.appendChild(addBtn);
   updateGroupCount(gridId, gi, group.items.length);
@@ -588,7 +588,7 @@ function buildCheckItemEl(gridId, gi, ii, item, isGear) {
   row.querySelector('.item-del').addEventListener('click', () => {
     (isGear ? gearGroups : foodGroups)[gi].items.splice(ii, 1);
     rebuildCheckGrid(gridId, isGear ? gearGroups : foodGroups, isGear);
-    scheduleSave();
+    saveToLocal();
   });
 
   return row;
@@ -694,7 +694,7 @@ function buildMealRow(di, mi, m) {
   row.querySelector('.row-del').addEventListener('click', () => {
     defaultMealDays[di].meals.splice(mi, 1);
     renderMeals();
-    scheduleSave();
+    saveToLocal();
   });
   return row;
 }
@@ -733,7 +733,7 @@ function addTip() {
 function removeTip(ti) {
   defaultTips.splice(ti, 1);
   renderTips();
-  scheduleSave();
+  saveToLocal();
 }
 
 function switchTab(name, btn) {
@@ -878,7 +878,6 @@ if (savedChecks) {
 // ── Global auto-save: catch everything ──
 document.addEventListener('input', scheduleSave);
 document.addEventListener('change', scheduleSave);
-document.addEventListener('click', scheduleSave);
 </script>
 </body>
 </html>
