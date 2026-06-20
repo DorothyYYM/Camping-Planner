@@ -95,6 +95,23 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 .note-box { margin-top: 20px; width: 100%; min-height: 80px; padding: 12px 14px; border: 1px solid #e8e8e4; border-radius: 10px; background: #fff; font-size: 13px; color: #555; line-height: 1.6; resize: vertical; font-family: inherit; outline: none; transition: border-color 0.15s; }
 .note-box:focus { border-color: #1D9E75; }
 .note-box:empty:before { content: attr(data-placeholder); color: #ccc; pointer-events: none; }
+.meal-day-card { background: #fff; border: 1px solid #e8e8e4; border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; }
+.meal-day-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.meal-day-label { font-size: 13px; font-weight: 600; flex: 1; }
+.meal-item { display: grid; grid-template-columns: 90px 1fr 24px; gap: 8px; padding: 6px 0; border-bottom: 1px solid #f0f0ec; align-items: start; }
+.meal-item:last-of-type { border-bottom: none; }
+.meal-item-time { font-size: 12px; font-weight: 600; color: #888; }
+.meal-item-desc { font-size: 13px; color: #1a1a1a; line-height: 1.4; }
+.food-group-card { background: #fff; border: 1px solid #e8e8e4; border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; }
+.food-group-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.food-group-name { font-size: 13px; font-weight: 600; flex: 1; }
+.food-item-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid #f0f0ec; }
+.food-item-row:last-of-type { border-bottom: none; }
+.food-item-row input[type=checkbox] { accent-color: #1D9E75; flex-shrink: 0; width: 14px; height: 14px; cursor: pointer; }
+.food-item-name { font-size: 13px; flex: 1; color: #1a1a1a; }
+.food-item-name.done { text-decoration: line-through; color: #bbb; }
+.clear-btn { font-size: 11px; padding: 3px 10px; border: 1px solid #ddd; border-radius: 6px; background: transparent; color: #888; cursor: pointer; white-space: nowrap; }
+.clear-btn:hover { background: #f5f5f0; }
 .note-label { font-size: 11px; font-weight: 600; color: #aaa; letter-spacing: 0.06em; text-transform: uppercase; margin-top: 20px; margin-bottom: 6px; }
 .reset-btn { margin-top: 14px; padding: 7px 16px; border: 1px solid #ddd; border-radius: 8px; background: transparent; color: #888; font-size: 13px; cursor: pointer; }
 .reset-btn:hover { background: #f0f0ec; }
@@ -155,11 +172,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
   <!-- 食物 -->
   <div id="tab-food" class="panel">
     <div id="food-days-wrap"></div>
-    <div class="section-label" style="margin-top:16px">购物清单</div>
-    <div class="checklist-grid" id="food-grid"></div>
-    <button class="add-group-btn" onclick="addCheckGroup('food-grid', foodGroups, false)" style="margin-top:12px">＋ 新增分类</button>
-    <br>
-    <button class="reset-btn" onclick="resetFood()">↺ 重置勾选</button>
+    <button class="add-section-btn" onclick="addMealDay()" style="margin-top:8px">＋ 新增一天</button>
+
+    <div class="section-label" style="margin-top:24px">购物清单</div>
+    <div id="food-grid"></div>
+    <button class="add-group-btn" onclick="addFoodGroup()" style="margin-top:12px">＋ 新增分类</button>
+
     <div class="note-label">备注</div>
     <div id="note-food" class="note-box" contenteditable="true" spellcheck="false" data-placeholder="在这里写食物相关备注…" oninput="notes.food=this.innerText;scheduleSave()"></div>
   </div>
@@ -177,171 +195,606 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 <script>
 const notes = { itinerary: '', gear: '', food: '', tips: '' };
 
+const DEFAULT_MEAL_DAYS = [
+  {
+    "label": "周六 6月27日",
+    "meals": [
+      {
+        "t": "路上早餐",
+        "d": "三明治/面包、水果、咖啡（保温杯）"
+      },
+      {
+        "t": "下午点心",
+        "d": "坚果、能量棒、水果干、小孩饼干"
+      },
+      {
+        "t": "晚餐",
+        "d": "腌制鸡腿/香肠、铝箔玉米、烤蔬菜、法棍"
+      }
+    ]
+  },
+  {
+    "label": "周日 6月28日",
+    "meals": [
+      {
+        "t": "早餐",
+        "d": "即食燕麦 + 牛奶（盒装）、香蕉、咖啡、热可可（小孩）"
+      },
+      {
+        "t": "水上零食",
+        "d": "能量棒、坚果、苹果、防水袋装饼干、充足饮用水"
+      },
+      {
+        "t": "午餐",
+        "d": "花生酱三明治、剩余零食、水果，无需开火"
+      },
+      {
+        "t": "返程零食",
+        "d": "留一些零食供回程路上用"
+      }
+    ]
+  }
+];
+
+const DEFAULT_FOOD_SHOPPING = [
+  {
+    "icon": "❄️",
+    "name": "冷藏类（冰桶）",
+    "items": [
+      "腌好的鸡腿 / 香肠",
+      "鸡蛋（6个）",
+      "黄油小包",
+      "奶酪片"
+    ]
+  },
+  {
+    "icon": "🍞",
+    "name": "非冷藏 - 主食",
+    "items": [
+      "法棍 / 皮塔饼 / 切片面包",
+      "花生酱 + 果酱",
+      "速食燕麦包（6人份）",
+      "意大利面沙拉（提前做好）",
+      "盒装牛奶"
+    ]
+  },
+  {
+    "icon": "🍫",
+    "name": "零食 & 点心",
+    "items": [
+      "混合坚果",
+      "能量棒（10+根）",
+      "棉花糖 + 巧克力 + 全麦饼干",
+      "水果（苹果、香蕉）",
+      "薯片（2–3袋）"
+    ]
+  },
+  {
+    "icon": "💧",
+    "name": "饮水",
+    "items": [
+      "矿泉水（大量）",
+      "运动饮料",
+      "水壶（每人）"
+    ]
+  },
+  {
+    "icon": "☕",
+    "name": "饮料 & 调料",
+    "items": [
+      "速溶咖啡 / 茶包",
+      "热可可粉（儿童）",
+      "盐 + 胡椒 + 油",
+      "玉米（4–6根）",
+      "大量饮用水 + 冰"
+    ]
+  }
+];
+
+let foodMealDays = JSON.parse(JSON.stringify(DEFAULT_MEAL_DAYS));
+let foodShoppingGroups = JSON.parse(JSON.stringify(DEFAULT_FOOD_SHOPPING));
+
 const defaultDays = [
-  { label:'周六 6月27日 — 出发 + 徒步', events:[
-    { time:'9:00', title:'出发', desc:'出发前加满油，备好路上零食和饮水。', tags:['drive'] },
-    { time:'途中', title:'Tim Hortons 早餐', desc:'路上在 Tim Hortons 买早餐。', tags:['food'] },
-    { time:'12:00', title:'抵达公园', desc:'车程约2.5小时，预计12:00到达。直接导航到公园入口：\n**Parc national de la Mauricie, entrée Saint-Jean-des-Piles**\n地址：Chemin de Saint-Jean-des-Piles, Shawinigan, QC G0X 2V0', tags:['drive'] },
-    { time:'12:15', title:'徒步：Lac-Solitaire Trail（6.1km）', desc:'直接前往 Lac-Solitaire 步道出发点。官方预计2.5小时，带小孩预留4小时，约17:00前完成。记得备足饮水和零食。', tags:['hike'] },
-    { time:'17:00', title:'前往营地 — Location D, Site R-D5', desc:'徒步结束后前往预订营位：Location D，Site Number R-D5。卸车、搭帐篷，安顿行李。营地土质为砾石，需锤子或石块钉营钉。', tags:['camp'] },
-    { time:'18:30', title:'准备晚餐 & 篝火', desc:'搭好帐篷后生火准备晚餐。需在公园内购买柴薪。天黑后烤棉花糖。', tags:['food','camp'] },
-  ]},
-  { label:'周日 6月28日 — 收营 + 划船 + 返程', events:[
-    { time:'8:00–10:00', title:'自由活动 & Brunch', desc:'上午自由活动，各自解决 Brunch。享受营地最后的早晨，可以散步、玩耍或放松。', tags:['camp'] },
-    { time:'10:00', title:'收拾营地', desc:'打包帐篷和所有装备，清理营位，垃圾带走，恢复原状。', tags:['camp'] },
-    { time:'11:00', title:'Check out — Location D, Site R-D5', desc:'办理退营手续，确认营位清理干净后直接前往 Lac-Édouard。', tags:['camp'] },
-    { time:'11:30', title:'抵达 Lac-Édouard', desc:'到达后办理租船手续。', tags:['drive'] },
-    { time:'11:30–15:30', title:'独木舟 / 皮划艇（4小时）', desc:'在 Lac-Édouard 划船4小时。可选1小时、4小时或全天套餐。', tags:['water'] },
-    { time:'15:30', title:'沙滩自由玩耍', desc:'还船后在湖边沙滩放松，让小孩玩沙子、玩水，享受最后的户外时光。', tags:['camp'] },
-    { time:'17:00', title:'回程出发', desc:'路上解决晚饭，预计19:30–20:00到达目的地。', tags:['drive'] },
-  ]},
+  {
+    "label": "周六 6月27日 — 出发 + 徒步",
+    "events": [
+      {
+        "time": "9:00",
+        "title": "出发",
+        "desc": "出发前加满油，备好路上零食和饮水。",
+        "tags": [
+          "drive"
+        ]
+      },
+      {
+        "time": "途中",
+        "title": "Tim Hortons 早餐",
+        "desc": "路上在 Tim Hortons 买早餐。",
+        "tags": [
+          "food"
+        ]
+      },
+      {
+        "time": "12:00",
+        "title": "抵达公园",
+        "desc": "车程约2.5小时，预计12:00到达。直接导航到公园入口：Parc national de la Mauricie, entrée Saint-Jean-des-Piles，地址：Chemin de Saint-Jean-des-Piles, Shawinigan, QC G0X 2V0",
+        "tags": [
+          "drive"
+        ]
+      },
+      {
+        "time": "12:15",
+        "title": "徒步：Lac-Solitaire Trail（6.1km）",
+        "desc": "直接前往 Lac-Solitaire 步道出发点。官方预计2.5小时，带小孩预留4小时，约17:00前完成。记得备足饮水和零食。",
+        "tags": [
+          "hike"
+        ]
+      },
+      {
+        "time": "17:00",
+        "title": "前往营地 — Location D, Site R-D5",
+        "desc": "徒步结束后前往预订营位：Location D，Site Number R-D5。卸车、搭帐篷，安顿行李。营地土质为砾石，需锤子或石块钉营钉。",
+        "tags": [
+          "camp"
+        ]
+      },
+      {
+        "time": "18:30",
+        "title": "准备晚餐 & 篝火",
+        "desc": "搭好帐篷后生火准备晚餐。需在公园内购买柴薪。天黑后烤棉花糖。",
+        "tags": [
+          "food",
+          "camp"
+        ]
+      }
+    ]
+  },
+  {
+    "label": "周日 6月28日 — 收营 + 划船 + 返程",
+    "events": [
+      {
+        "time": "8:00–10:00",
+        "title": "自由活动 & Brunch",
+        "desc": "上午自由活动，各自解决 Brunch。享受营地最后的早晨，可以散步、玩耍或放松。",
+        "tags": [
+          "camp"
+        ]
+      },
+      {
+        "time": "10:00",
+        "title": "收拾营地",
+        "desc": "打包帐篷和所有装备，清理营位，垃圾带走，恢复原状。",
+        "tags": [
+          "camp"
+        ]
+      },
+      {
+        "time": "11:00",
+        "title": "Check out — Location D, Site R-D5",
+        "desc": "办理退营手续，确认营位清理干净后直接前往 Lac-Édouard。",
+        "tags": [
+          "camp"
+        ]
+      },
+      {
+        "time": "11:30",
+        "title": "抵达 Lac-Édouard",
+        "desc": "到达后办理租船手续。",
+        "tags": [
+          "drive"
+        ]
+      },
+      {
+        "time": "11:30–15:30",
+        "title": "独木舟 / 皮划艇（4小时）",
+        "desc": "在 Lac-Édouard 划船4小时。可选1小时、4小时或全天套餐。",
+        "tags": [
+          "water"
+        ]
+      },
+      {
+        "time": "15:30",
+        "title": "沙滩自由玩耍",
+        "desc": "还船后在湖边沙滩放松，让小孩玩沙子、玩水，享受最后的户外时光。",
+        "tags": [
+          "camp"
+        ]
+      },
+      {
+        "time": "17:00",
+        "title": "回程出发",
+        "desc": "路上解决晚饭，预计19:30–20:00到达目的地。",
+        "tags": [
+          "drive"
+        ]
+      }
+    ]
+  }
 ];
 
 const gearGroups = [
-  { icon:'🏡', name:'营地布置', reserve:false, items:[
-    {l:'帐篷',n:'2顶，一家一顶，含备用营钉'},
-    {l:'防潮垫',n:'每个帐篷内一个，帐篷外额外备一个'},
-    {l:'睡袋',n:'一人一个，适合10°C+'},
-    {l:'充气枕',n:'每人一个'},
-    {l:'毯子（1–2床）',n:'以防晚上气温低，6月夜间可冷'},
-    {l:'充气床垫',n:'自行按需准备'},
-    {l:'电动充气泵',n:'给床垫充气用'},
-    {l:'折叠桌椅',n:''},
-    {l:'天幕',n:'遮阳防雨'},
-    {l:'防蚊透气网状帐篷',n:'罩在营地野餐桌椅外，防蚊虫'},
-    {l:'吊床',n:''},
-    {l:'营地吊灯/灯串',n:''}
-  ]},
-  { icon:'📦', name:'营地布置 · 备选库', reserve:true, items:[
-    {l:'帐篷维修贴',n:'备用，防止帐篷布或纱网破损'}
-  ]},
-  { icon:'🍳', name:'厨房 & 饮食', reserve:false, items:[
-    {l:'保温箱',n:'配冰块保鲜；可用冷冻矿泉水代替冰块，既保冷又提供饮水'},
-    {l:'烧水壶',n:''},
-    {l:'超长拖线板',n:''},
-    {l:'便携炉具',n:'燃气炉需配气罐；烧炭炉需配 charcoal'},
-    {l:'烧烤工具',n:'烤夹、烤刷、烤叉，带隔热手套'},
-    {l:'防风打火机',n:'点火必备'},
-    {l:'一次性餐具',n:'盘子、杯子、筷子、勺子、叉子、吸管，按人数备足'},
-    {l:'刀 + 砧板 + 剪刀',n:'食材处理用，拆包装'},
-    {l:'锡纸 + 油纸',n:''},
-    {l:'密封袋 + 垃圾袋',n:''},
-    {l:'调料包',n:'盐、胡椒、烧烤料、腌料'},
-    {l:'厨房纸 + 抽纸 + 湿纸巾',n:''}
-  ]},
-  { icon:'📦', name:'厨房 & 饮食 · 备选库', reserve:true, items:[
-    {l:'炊具（煮锅、煎锅、不锈钢盆）',n:'多日露营或有热食需求时携带'},
-    {l:'洗碗海绵 + 洗洁精',n:''},
-    {l:'折叠烤架 / 烤网',n:'营地篝火台不一定有烤网，建议自备'},
-    {l:'保温杯',n:''}
-  ]},
-  { icon:'👜', name:'个人物品', reserve:false, items:[
-    {l:'上衣 + 下裤 + 袜子',n:'按照每天两套算'},
-    {l:'（防水）外套',n:''},
-    {l:'（一次性）内裤',n:''},
-    {l:'运动鞋',n:''},
-    {l:'拖鞋/洞洞鞋',n:''},
-    {l:'帽子+墨镜',n:''},
-    {l:'牙刷牙膏 + 洗脸巾',n:''},
-    {l:'手消毒液',n:''},
-    {l:'儿童便携马桶',n:''}
-  ]},
-  { icon:'📦', name:'个人物品 · 备选库', reserve:true, items:[
-  ]},
-  { icon:'🩺', name:'安全 & 急救', reserve:false, items:[
-    {l:'急救包',n:'含创可贴、消毒液、纱布'},
-    {l:'防蚊液（儿童版）',n:'6月蚊虫旺季'},
-    {l:'蚊香',n:''},
-    {l:'驱蚊灯',n:''},
-    {l:'防晒霜 SPF 50+',n:'全家每人'},
-    {l:'手电筒 / 头灯 + 备用电池',n:''},
-    {l:'打火机 + 防风火柴',n:''},
-    {l:'急救毯（应急用）',n:''}
-  ]},
-  { icon:'📦', name:'安全 & 急救 · 备选库', reserve:true, items:[
-    {l:'蛇伤处理包',n:''},
-    {l:'过敏药（抗组胺）',n:''},
-    {l:'止痛药',n:''}
-  ]},
-  { icon:'🚣', name:'水上活动', reserve:false, items:[
-    {l:'泳衣 + 泳镜 + 泳帽 + 浴巾 + 游泳包',n:''},
-    {l:'水鞋',n:''},
-    {l:'儿童救生衣',n:''},
-    {l:'防水袋',n:''},
-    {l:'挖沙工具 + 收纳包',n:''}
-  ]},
-  { icon:'📦', name:'水上活动 · 备选库', reserve:true, items:[
-  ]},
-  { icon:'🎲', name:'娱乐 & 儿童', reserve:false, items:[
-    {l:'烤棉花糖长叉',n:'6根'},
-    {l:'扑克牌 / 桌游',n:'营地夜间必备'},
-    {l:'儿童驱虫手环',n:''},
-    {l:'彩色笔 + 便签本',n:'小孩自然日记'}
-  ]},
-  { icon:'📦', name:'娱乐 & 儿童 · 备选库', reserve:true, items:[
-    {l:'飞盘 / 羽毛球',n:'营地空地活动'},
-    {l:'望远镜',n:'观鸟、看星'},
-    {l:'儿童帐篷灯',n:'小孩夜间安抚'},
-    {l:'故事书 / 绘本',n:''}
-  ]},
-  { icon:'📋', name:'后勤 & 文件', reserve:false, items:[
-    {l:'公园预订确认单（打印或截图）',n:''},
-    {l:'驾照 + 应急药品',n:''},
-    {l:'离线地图（AllTrails 下载）',n:'营区信号弱'},
-    {l:'垃圾袋（多个）',n:'Leave No Trace'},
-    {l:'营地专用柴薪钱',n:'或在公园入口购买'}
-  ]},
-  { icon:'📦', name:'后勤 & 文件 · 备选库', reserve:true, items:[
-    {l:'营地椅子 / 折叠桌',n:''},
-    {l:'太阳能充电板',n:'多日露营充电'},
-    {l:'营地灯串',n:'装饰氛围'}
-  ]},
+  {
+    "icon": "🏡",
+    "name": "营地布置",
+    "reserve": false,
+    "items": [
+      {
+        "l": "帐篷",
+        "n": "2顶，一家一顶，含备用营钉"
+      },
+      {
+        "l": "防潮垫",
+        "n": "每个帐篷内一个，帐篷外额外备一个"
+      },
+      {
+        "l": "睡袋",
+        "n": "一人一个，适合10°C+"
+      },
+      {
+        "l": "充气枕",
+        "n": "每人一个"
+      },
+      {
+        "l": "毯子（1–2床）",
+        "n": "以防晚上气温低，6月夜间可冷"
+      },
+      {
+        "l": "充气床垫",
+        "n": "自行按需准备"
+      },
+      {
+        "l": "电动充气泵",
+        "n": "给床垫充气用"
+      },
+      {
+        "l": "折叠桌椅",
+        "n": ""
+      },
+      {
+        "l": "天幕",
+        "n": "遮阳防雨"
+      },
+      {
+        "l": "防蚊透气网状帐篷",
+        "n": "罩在营地野餐桌椅外，防蚊虫"
+      },
+      {
+        "l": "吊床",
+        "n": ""
+      },
+      {
+        "l": "营地吊灯/串灯（充满电）",
+        "n": ""
+      }
+    ]
+  },
+  {
+    "icon": "📦",
+    "name": "营地布置 · 备选库",
+    "reserve": true,
+    "items": [
+      {
+        "l": "帐篷维修贴",
+        "n": "备用，防止帐篷布或纱网破损"
+      }
+    ]
+  },
+  {
+    "icon": "🍳",
+    "name": "厨房 & 饮食",
+    "reserve": false,
+    "items": [
+      {
+        "l": "保温箱",
+        "n": "配冰块保鲜；可用冷冻矿泉水代替冰块，既保冷又提供饮水"
+      },
+      {
+        "l": "烧水壶",
+        "n": ""
+      },
+      {
+        "l": "超长拖线板",
+        "n": ""
+      },
+      {
+        "l": "便携炉具",
+        "n": "燃气炉需配气罐；烧炭炉需配 charcoal"
+      },
+      {
+        "l": "烧烤工具",
+        "n": "烤夹、烤刷、烤叉，带隔热手套"
+      },
+      {
+        "l": "防风打火机",
+        "n": "点火必备"
+      },
+      {
+        "l": "一次性餐具",
+        "n": "盘子、杯子、筷子、勺子、叉子、吸管，按人数备足"
+      },
+      {
+        "l": "刀 + 砧板 + 剪刀",
+        "n": "食材处理用，拆包装"
+      },
+      {
+        "l": "锡纸 + 油纸",
+        "n": ""
+      },
+      {
+        "l": "密封袋 + 垃圾袋",
+        "n": ""
+      },
+      {
+        "l": "调料",
+        "n": "油、盐、胡椒、烧烤料、腌料"
+      },
+      {
+        "l": "厨房纸 + 抽纸 + 湿纸巾 + 清洁类湿纸巾（Lysol）",
+        "n": ""
+      },
+      {
+        "l": "饭盒（可以放微波炉）",
+        "n": ""
+      },
+      {
+        "l": "桌布",
+        "n": ""
+      },
+      {
+        "l": "一次性手套",
+        "n": ""
+      }
+    ]
+  },
+  {
+    "icon": "📦",
+    "name": "厨房 & 饮食 · 备选库",
+    "reserve": true,
+    "items": [
+      {
+        "l": "炊具（煮锅、煎锅、不锈钢盆）",
+        "n": "多日露营或有热食需求时携带"
+      },
+      {
+        "l": "洗碗海绵 + 洗洁精",
+        "n": ""
+      },
+      {
+        "l": "折叠烤架 / 烤网",
+        "n": "营地篝火台不一定有烤网，建议自备"
+      },
+      {
+        "l": "保温杯/壶",
+        "n": ""
+      },
+      {
+        "l": "烤盘",
+        "n": ""
+      },
+      {
+        "l": "吐司机",
+        "n": ""
+      },
+      {
+        "l": "锅铲 + 汤勺",
+        "n": ""
+      },
+      {
+        "l": "电磁炉",
+        "n": ""
+      },
+      {
+        "l": "便携茶具",
+        "n": ""
+      }
+    ]
+  },
+  {
+    "icon": "👜",
+    "name": "个人物品",
+    "reserve": false,
+    "items": [
+      {
+        "l": "上衣 + 下裤 + 袜子",
+        "n": "按照每天两套算"
+      },
+      {
+        "l": "（防水）外套",
+        "n": ""
+      },
+      {
+        "l": "（一次性）内裤",
+        "n": ""
+      },
+      {
+        "l": "运动鞋",
+        "n": ""
+      },
+      {
+        "l": "拖鞋/洞洞鞋",
+        "n": ""
+      },
+      {
+        "l": "帽子+墨镜",
+        "n": ""
+      },
+      {
+        "l": "登山杖",
+        "n": ""
+      },
+      {
+        "l": "个护用品",
+        "n": "牙刷、牙膏、沐浴露、洗发水、护发素、润肤露、防晒霜、洗面奶、卸妆膏、洗脸巾、面霜乳液、隐形眼镜+盒子+药水、镜框眼镜+盒子、皮筋+发卡、镜子、化妆品"
+      },
+      {
+        "l": "手消毒液",
+        "n": ""
+      },
+      {
+        "l": "儿童便携马桶",
+        "n": ""
+      },
+      {
+        "l": "自拍杆",
+        "n": ""
+      }
+    ]
+  },
+  {
+    "icon": "📦",
+    "name": "个人物品 · 备选库",
+    "reserve": true,
+    "items": []
+  },
+  {
+    "icon": "🩺",
+    "name": "安全 & 急救",
+    "reserve": false,
+    "items": [
+      {
+        "l": "急救包",
+        "n": "创可贴、消毒液、纱布、过敏药、泰诺、碘伏、棉签、止痒膏"
+      },
+      {
+        "l": "防蚊液",
+        "n": ""
+      },
+      {
+        "l": "蚊香",
+        "n": ""
+      },
+      {
+        "l": "驱蚊灯",
+        "n": ""
+      },
+      {
+        "l": "手电筒 + 备用电池",
+        "n": ""
+      },
+      {
+        "l": "胶带",
+        "n": ""
+      },
+      {
+        "l": "吊绳",
+        "n": ""
+      }
+    ]
+  },
+  {
+    "icon": "📦",
+    "name": "安全 & 急救 · 备选库",
+    "reserve": true,
+    "items": []
+  },
+  {
+    "icon": "🚣",
+    "name": "水上活动",
+    "reserve": false,
+    "items": [
+      {
+        "l": "泳衣 + 泳镜 + 泳帽 + 浴巾 + 游泳包",
+        "n": ""
+      },
+      {
+        "l": "水鞋",
+        "n": ""
+      },
+      {
+        "l": "儿童救生衣",
+        "n": ""
+      },
+      {
+        "l": "防水袋",
+        "n": ""
+      },
+      {
+        "l": "挖沙工具 + 收纳包",
+        "n": ""
+      }
+    ]
+  },
+  {
+    "icon": "📦",
+    "name": "水上活动 · 备选库",
+    "reserve": true,
+    "items": []
+  },
+  {
+    "icon": "🎲",
+    "name": "娱乐 & 儿童",
+    "reserve": false,
+    "items": [
+      {
+        "l": "扑克牌 / 桌游",
+        "n": ""
+      },
+      {
+        "l": "儿童玩具",
+        "n": ""
+      }
+    ]
+  },
+  {
+    "icon": "📦",
+    "name": "娱乐 & 儿童 · 备选库",
+    "reserve": true,
+    "items": []
+  },
+  {
+    "icon": "📋",
+    "name": "后勤 & 文件",
+    "reserve": false,
+    "items": [
+      {
+        "l": "公园预订确认单（打印或截图）",
+        "n": ""
+      },
+      {
+        "l": "离线地图（AllTrails 下载）",
+        "n": "营区信号弱"
+      }
+    ]
+  },
+  {
+    "icon": "📦",
+    "name": "后勤 & 文件 · 备选库",
+    "reserve": true,
+    "items": []
+  }
 ];
 
-const foodGroups = [
-  { icon:'❄️', name:'冷藏类（冰桶）', items:[
-    {l:'腌好的鸡腿 / 香肠',n:'周六晚烤肉主菜'},{l:'鸡蛋（6个）',n:'周日早餐备用'},{l:'黄油小包',n:''},{l:'奶酪片',n:''}
-  ]},
-  { icon:'🍞', name:'非冷藏 - 主食', items:[
-    {l:'法棍 / 皮塔饼 / 切片面包',n:''},{l:'花生酱 + 果酱',n:''},{l:'速食燕麦包（6人份）',n:'周日早餐'},{l:'意大利面沙拉（提前做好）',n:''},{l:'盒装牛奶',n:'儿童用'}
-  ]},
-  { icon:'🍫', name:'零食 & 点心', items:[
-    {l:'混合坚果',n:'高热量补给'},{l:'能量棒（10+根）',n:''},{l:'棉花糖 + 巧克力 + 全麦饼干',n:"S'mores材料"},{l:'水果（苹果、香蕉）',n:'耐摔好携带'},{l:'薯片（2–3袋）',n:''}
-  ]},
-  { icon:'💧', name:'饮水', items:[
-    {l:'矿泉水（大量）',n:'部分提前冷冻放保温箱，既保冷又提供饮水'},
-    {l:'运动饮料',n:'徒步补充电解质'},
-    {l:'水壶（每人）',n:'至少1.5L/人，徒步和划船自带'}
-  ]},
-  { icon:'☕', name:'饮料 & 调料', items:[
-    {l:'速溶咖啡 / 茶包',n:''},{l:'热可可粉（儿童）',n:''},{l:'盐 + 胡椒 + 油',n:'小瓶装'},{l:'玉米（4–6根）',n:'铝箔烤用'},{l:'大量饮用水 + 冰',n:'出发前补买'}
-  ]},
-];
 
-const defaultMealDays = [
-  { label:'周六 6月27日', meals:[
-    {t:'路上早餐',n:'提前备好的食物',d:'三明治/面包、水果、咖啡（保温杯）'},
-    {t:'午餐',n:'营地简餐',d:'意大利面沙拉 / 皮塔饼 + 鹰嘴豆泥、薯片'},
-    {t:'下午点心',n:'户外零食',d:'坚果、能量棒、水果干、小孩饼干'},
-    {t:'晚餐',n:'篝火烤肉 🔥',d:'腌制鸡腿/香肠、铝箔玉米、烤蔬菜、法棍'},
-    {t:'夜宵',n:"S'mores",d:'棉花糖 + 巧克力 + 饼干'},
-  ]},
-  { label:'周日 6月28日', meals:[
-    {t:'早餐',n:'营地早餐',d:'即食燕麦 + 牛奶（盒装）、香蕉、咖啡、热可可（小孩）'},
-    {t:'水上零食',n:'划船补给包',d:'能量棒、坚果、苹果、防水袋装饼干、充足饮用水'},
-    {t:'午餐',n:'快手收拾餐',d:'花生酱三明治、剩余零食、水果，无需开火'},
-    {t:'返程零食',n:'车上吃',d:'留一些零食供回程路上用'},
-  ]},
-];
 
 const defaultTips = [
-  { title:'📋 营位预订', body:'Parks Canada 营位需在 reservation.pc.gc.ca 提前预订，热门时段（尤其周末）抢手。确认预订号，到入口出示即可。' },
-  { title:'🚣 独木舟租赁', body:'Wapizagonke 湖租船须先到自助服务亭（kiosk）登记，再前往租赁点付款，流程分两步。周日上午建议9:00前到达。' },
-  { title:'🛡️ 水上安全', body:'小孩必须全程穿救生衣（公园租赁点提供儿童尺寸）。划船前确认风浪情况，避免下午雷雨时出发。' },
-  { title:'🦟 防虫防晒', body:'6月魁北克森林蚊虫较多，备足 DEET 或天然防蚊液（儿童用），长袖长裤徒步。强烈建议全程防晒霜，湖面反光更强。' },
-  { title:'📍 土质与营钉', body:'Rivière-à-la-Pêche 营地地面为砾石，普通营钉难以钉入，建议携带小锤或用营区石块辅助。' },
-  { title:'🐾 食物收纳', body:'所有食物、冰桶、有气味的物品必须锁入车内或专用熊桶，切勿放在帐篷旁过夜。公园设有专用食物存放架（food locker），请使用。' },
-  { title:'📞 紧急联系', body:'Parks Canada 急救电话：1-888-773-8888。营区内手机信号较弱，提前下载离线地图（maps.me / AllTrails）。告知一名未同行的家人你的行程安排。' },
+  {
+    "title": "📋 营位预订",
+    "body": "Parks Canada 营位需在 reservation.pc.gc.ca 提前预订，热门时段（尤其周末）抢手。确认预订号，到入口出示即可。"
+  },
+  {
+    "title": "🚣 独木舟租赁",
+    "body": "Wapizagonke 湖租船须先到自助服务亭（kiosk）登记，再前往租赁点付款，流程分两步。周日上午建议9:00前到达。"
+  },
+  {
+    "title": "🛡️ 水上安全",
+    "body": "小孩必须全程穿救生衣（公园租赁点提供儿童尺寸）。划船前确认风浪情况，避免下午雷雨时出发。"
+  },
+  {
+    "title": "🦟 防虫防晒",
+    "body": "6月魁北克森林蚊虫较多，备足 DEET 或天然防蚊液（儿童用），长袖长裤徒步。强烈建议全程防晒霜，湖面反光更强。"
+  },
+  {
+    "title": "📍 土质与营钉",
+    "body": "Rivière-à-la-Pêche 营地地面为砾石，普通营钉难以钉入，建议携带小锤或用营区石块辅助。"
+  },
+  {
+    "title": "🐾 食物收纳",
+    "body": "所有食物、冰桶、有气味的物品必须锁入车内或专用熊桶，切勿放在帐篷旁过夜。公园设有专用食物存放架（food locker），请使用。"
+  },
+  {
+    "title": "📞 紧急联系",
+    "body": "Parks Canada 急救电话：1-888-773-8888。营区内手机信号较弱，提前下载离线地图（maps.me / AllTrails）。告知一名未同行的家人你的行程安排。"
+  }
 ];
 
 // ── Itinerary ──
@@ -671,65 +1124,233 @@ function resetFood() {
   foodGroups.forEach((g, gi) => updateGroupCount('food-grid', gi, g.items.length));
 }
 
-// ── Meals ──
-function renderMeals() {
+// ── Food Tab ──
+function renderFoodTab() {
+  renderFoodMealDays();
+  renderFoodShopping();
+}
+
+function renderFoodMealDays() {
   const wrap = document.getElementById('food-days-wrap');
   wrap.innerHTML = '';
   const grid = document.createElement('div');
-  grid.className = 'two-col';
-  defaultMealDays.forEach((day, di) => {
-    const col = document.createElement('div');
-    col.innerHTML = `<div class="section-label" contenteditable="true" spellcheck="false">${day.label}</div>`;
-    col.querySelector('.section-label').addEventListener('input', function() { day.label = this.innerText.trim(); scheduleSave(); });
-    const box = document.createElement('div');
-    box.className = 'meal-box';
-    box.id = `meal-box-${di}`;
-    day.meals.forEach(m => box.appendChild(buildMealRow(day, m)));
-    const addBtn = document.createElement('button');
-    addBtn.className = 'add-meal-btn';
-    addBtn.textContent = '＋ 新增餐食';
-    addBtn.onclick = () => {
-      const m = { t: '新餐次', n: '点击编辑菜名', d: '' };
-      day.meals.push(m);
-      const row = buildMealRow(day, m);
-      box.insertBefore(row, addBtn);
-      const nameEl = row.querySelector('.meal-time');
-      nameEl.focus();
-      const range = document.createRange();
-      range.selectNodeContents(nameEl);
-      window.getSelection().removeAllRanges();
-      window.getSelection().addRange(range);
-      saveToLocal();
-    };
-    box.appendChild(addBtn);
-    col.appendChild(box);
-    grid.appendChild(col);
-  });
+  grid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:12px;';
+  foodMealDays.forEach(day => grid.appendChild(buildMealDayCard(day)));
   wrap.appendChild(grid);
 }
 
-function buildMealRow(day, m) {
+function buildMealDayCard(day) {
+  const card = document.createElement('div');
+  card.className = 'meal-day-card';
+
+  const header = document.createElement('div');
+  header.className = 'meal-day-header';
+  const label = document.createElement('div');
+  label.className = 'meal-day-label';
+  label.contentEditable = 'true';
+  label.spellcheck = false;
+  label.innerText = day.label;
+  label.addEventListener('input', () => { day.label = label.innerText.trim(); scheduleSave(); });
+  label.addEventListener('keydown', e => { if(e.key==='Enter'){e.preventDefault();label.blur();} });
+  const delDayBtn = document.createElement('button');
+  delDayBtn.className = 'del-btn';
+  delDayBtn.textContent = '✕';
+  delDayBtn.title = '删除这一天';
+  delDayBtn.addEventListener('click', () => {
+    const idx = foodMealDays.indexOf(day);
+    if (idx > -1) foodMealDays.splice(idx, 1);
+    card.remove();
+    saveToLocal();
+  });
+  header.appendChild(label);
+  header.appendChild(delDayBtn);
+  card.appendChild(header);
+
+  day.meals.forEach(m => card.appendChild(buildMealItemRow(day, m, card)));
+
+  const addBtn = document.createElement('button');
+  addBtn.className = 'add-meal-btn';
+  addBtn.textContent = '＋ 新增餐食';
+  addBtn.onclick = () => {
+    const m = { t: '新餐次', d: '写吃什么' };
+    day.meals.push(m);
+    const row = buildMealItemRow(day, m, card);
+    card.insertBefore(row, addBtn);
+    const el = row.querySelector('.meal-item-time');
+    el.focus();
+    const r = document.createRange(); r.selectNodeContents(el);
+    window.getSelection().removeAllRanges(); window.getSelection().addRange(r);
+    saveToLocal();
+  };
+  card.appendChild(addBtn);
+  return card;
+}
+
+function buildMealItemRow(day, m, card) {
   const row = document.createElement('div');
-  row.className = 'meal-row';
-  row.innerHTML = `<div class="meal-time" contenteditable="true" spellcheck="false">${m.t}</div>
-    <div><div class="meal-name" contenteditable="true" spellcheck="false">${m.n}</div>
-    <div class="meal-detail" contenteditable="true" spellcheck="false">${m.d}</div></div>
-    <button class="row-del" title="删除">✕</button>`;
-  const timeEl = row.querySelector('.meal-time');
-  const nameEl = row.querySelector('.meal-name');
-  const detailEl = row.querySelector('.meal-detail');
+  row.className = 'meal-item';
+  const timeEl = document.createElement('div');
+  timeEl.className = 'meal-item-time';
+  timeEl.contentEditable = 'true';
+  timeEl.spellcheck = false;
+  timeEl.innerText = m.t;
   timeEl.addEventListener('input', () => { m.t = timeEl.innerText.trim(); scheduleSave(); });
-  nameEl.addEventListener('input', () => { m.n = nameEl.innerText.trim(); scheduleSave(); });
-  detailEl.addEventListener('input', () => { m.d = detailEl.innerText.trim(); scheduleSave(); });
   timeEl.addEventListener('keydown', e => { if(e.key==='Enter'){e.preventDefault();timeEl.blur();} });
-  row.querySelector('.row-del').addEventListener('click', () => {
+
+  const descEl = document.createElement('div');
+  descEl.className = 'meal-item-desc';
+  descEl.contentEditable = 'true';
+  descEl.spellcheck = false;
+  descEl.innerText = m.d;
+  descEl.addEventListener('input', () => { m.d = descEl.innerText.trim(); scheduleSave(); });
+
+  const delBtn = document.createElement('button');
+  delBtn.className = 'row-del';
+  delBtn.textContent = '✕';
+  delBtn.addEventListener('click', () => {
     const idx = day.meals.indexOf(m);
     if (idx > -1) day.meals.splice(idx, 1);
     row.remove();
     saveToLocal();
   });
+  row.appendChild(timeEl);
+  row.appendChild(descEl);
+  row.appendChild(delBtn);
   return row;
 }
+
+function addMealDay() {
+  const day = { label: '新的一天', meals: [{ t: '早餐', d: '写吃什么' }] };
+  foodMealDays.push(day);
+  const wrap = document.getElementById('food-days-wrap');
+  const grid = wrap.querySelector('div') || wrap;
+  const card = buildMealDayCard(day);
+  grid.appendChild(card);
+  card.querySelector('.meal-day-label').focus();
+  saveToLocal();
+}
+
+// ── Food Shopping ──
+function renderFoodShopping() {
+  const grid = document.getElementById('food-grid');
+  grid.innerHTML = '';
+  const inner = document.createElement('div');
+  inner.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:12px;';
+  foodShoppingGroups.forEach(group => inner.appendChild(buildFoodGroupCard(group)));
+  grid.appendChild(inner);
+}
+
+function buildFoodGroupCard(group) {
+  const card = document.createElement('div');
+  card.className = 'food-group-card';
+
+  const header = document.createElement('div');
+  header.className = 'food-group-header';
+  const icon = document.createElement('span');
+  icon.textContent = group.icon;
+  const name = document.createElement('div');
+  name.className = 'food-group-name';
+  name.contentEditable = 'true';
+  name.spellcheck = false;
+  name.innerText = group.name;
+  name.addEventListener('input', () => { group.name = name.innerText.trim(); scheduleSave(); });
+  name.addEventListener('keydown', e => { if(e.key==='Enter'){e.preventDefault();name.blur();} });
+
+  const clearBtn = document.createElement('button');
+  clearBtn.className = 'clear-btn';
+  clearBtn.textContent = '↺ 清零';
+  clearBtn.addEventListener('click', () => {
+    card.querySelectorAll('input[type=checkbox]').forEach(cb => {
+      cb.checked = false;
+      cb.closest('.food-item-row')?.querySelector('.food-item-name')?.classList.remove('done');
+    });
+    scheduleSave();
+  });
+
+  const delGroupBtn = document.createElement('button');
+  delGroupBtn.className = 'del-btn';
+  delGroupBtn.textContent = '✕';
+  delGroupBtn.title = '删除分类';
+  delGroupBtn.addEventListener('click', () => {
+    const idx = foodShoppingGroups.indexOf(group);
+    if (idx > -1) foodShoppingGroups.splice(idx, 1);
+    card.remove();
+    saveToLocal();
+  });
+
+  header.appendChild(icon);
+  header.appendChild(name);
+  header.appendChild(clearBtn);
+  header.appendChild(delGroupBtn);
+  card.appendChild(header);
+
+  group.items.forEach(item => card.appendChild(buildFoodItemRow(group, item, card)));
+
+  const addBtn = document.createElement('button');
+  addBtn.className = 'add-item-btn';
+  addBtn.textContent = '＋ 新增物品';
+  addBtn.onclick = () => {
+    const item = '新物品';
+    group.items.push(item);
+    const row = buildFoodItemRow(group, item, card);
+    card.insertBefore(row, addBtn);
+    const el = row.querySelector('.food-item-name');
+    el.focus();
+    const r = document.createRange(); r.selectNodeContents(el);
+    window.getSelection().removeAllRanges(); window.getSelection().addRange(r);
+    saveToLocal();
+  };
+  card.appendChild(addBtn);
+  return card;
+}
+
+function buildFoodItemRow(group, item, card) {
+  const row = document.createElement('div');
+  row.className = 'food-item-row';
+  const cb = document.createElement('input');
+  cb.type = 'checkbox';
+  const nameEl = document.createElement('div');
+  nameEl.className = 'food-item-name';
+  nameEl.contentEditable = 'true';
+  nameEl.spellcheck = false;
+  nameEl.innerText = item;
+  nameEl.addEventListener('input', () => {
+    const idx = group.items.indexOf(item);
+    if (idx > -1) group.items[idx] = nameEl.innerText.trim();
+    scheduleSave();
+  });
+  nameEl.addEventListener('keydown', e => { if(e.key==='Enter'){e.preventDefault();nameEl.blur();} });
+  cb.addEventListener('change', function() {
+    nameEl.classList.toggle('done', this.checked);
+    scheduleSave();
+  });
+  const delBtn = document.createElement('button');
+  delBtn.className = 'item-del';
+  delBtn.textContent = '✕';
+  delBtn.addEventListener('click', () => {
+    const idx = group.items.indexOf(item);
+    if (idx > -1) group.items.splice(idx, 1);
+    row.remove();
+    saveToLocal();
+  });
+  row.appendChild(cb);
+  row.appendChild(nameEl);
+  row.appendChild(delBtn);
+  return row;
+}
+
+function addFoodGroup() {
+  const group = { icon: '🛒', name: '新分类', items: [] };
+  foodShoppingGroups.push(group);
+  const outer = document.getElementById('food-grid');
+  const inner = outer.querySelector('div') || outer;
+  const card = buildFoodGroupCard(group);
+  inner.appendChild(card);
+  card.querySelector('.food-group-name').focus();
+  saveToLocal();
+}
+
+function renderMeals() { renderFoodTab(); }
 
 // ── Tips ──
 function renderTips() {
@@ -790,8 +1411,8 @@ function exportData() {
   const data = {
     days: defaultDays,
     gearGroups,
-    foodGroups,
-    mealDays: defaultMealDays,
+    foodMealDays,
+    foodShoppingGroups,
     tips: defaultTips,
     checks: {},
     exportedAt: new Date().toISOString(),
@@ -818,13 +1439,20 @@ function importData(event) {
       const data = JSON.parse(e.target.result);
       if (data.days) defaultDays.splice(0, defaultDays.length, ...data.days);
       if (data.gearGroups) gearGroups.splice(0, gearGroups.length, ...data.gearGroups);
-      if (data.foodGroups) foodGroups.splice(0, foodGroups.length, ...data.foodGroups);
-      if (data.mealDays) defaultMealDays.splice(0, defaultMealDays.length, ...data.mealDays);
+      // Support both new and old format
+      if (data.foodMealDays) foodMealDays = data.foodMealDays;
+      else if (data.mealDays) foodMealDays = data.mealDays;
+      if (data.foodShoppingGroups) foodShoppingGroups = data.foodShoppingGroups;
+      else if (data.foodGroups) foodShoppingGroups = data.foodGroups.map(g => ({
+        icon: g.icon || '🛒',
+        name: g.name,
+        items: (g.items || []).map(item => typeof item === 'string' ? item : item.l || '')
+      }));
       if (data.tips) defaultTips.splice(0, defaultTips.length, ...data.tips);
       renderItinerary();
       rebuildCheckGrid('gear-grid', gearGroups, true);
-      rebuildCheckGrid('food-grid', foodGroups, false);
-      renderMeals();
+      renderFoodTab();
+
       renderTips();
       if (data.notes) {
         Object.assign(notes, data.notes);
@@ -863,8 +1491,8 @@ async function saveToFirebase() {
   const data = {
     days: defaultDays,
     gearGroups,
-    foodGroups,
-    mealDays: defaultMealDays,
+    foodMealDays,
+    foodShoppingGroups,
     tips: defaultTips,
     checks: {},
     tripTitle: titleEl ? titleEl.innerText : '',
@@ -895,8 +1523,8 @@ async function loadFromFirebase() {
     if (!data) return false;
     if (data.days) defaultDays.splice(0, defaultDays.length, ...data.days);
     if (data.gearGroups) gearGroups.splice(0, gearGroups.length, ...data.gearGroups);
-    if (data.foodGroups) foodGroups.splice(0, foodGroups.length, ...data.foodGroups);
-    if (data.mealDays) defaultMealDays.splice(0, defaultMealDays.length, ...data.mealDays);
+    if (data.foodMealDays) foodMealDays = data.foodMealDays;
+    if (data.foodShoppingGroups) foodShoppingGroups = data.foodShoppingGroups;
     if (data.tips) defaultTips.splice(0, defaultTips.length, ...data.tips);
     if (data.tripTitle) {
       const titleEl = document.getElementById('trip-title');
@@ -937,8 +1565,7 @@ async function init() {
   const savedChecks = await loadFromFirebase();
   renderItinerary();
   rebuildCheckGrid('gear-grid', gearGroups, true);
-  rebuildCheckGrid('food-grid', foodGroups, false);
-  renderMeals();
+  renderFoodTab();
   renderTips();
   if (savedChecks) {
     Object.entries(savedChecks).forEach(([id, checked]) => {
