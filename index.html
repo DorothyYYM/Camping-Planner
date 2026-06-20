@@ -691,6 +691,13 @@ function buildMealRow(di, mi, m) {
     <div><div class="meal-name" contenteditable="true" spellcheck="false">${m.n}</div>
     <div class="meal-detail" contenteditable="true" spellcheck="false">${m.d}</div></div>
     <button class="row-del" title="删除">✕</button>`;
+  const timeEl = row.querySelector('.meal-time');
+  const nameEl = row.querySelector('.meal-name');
+  const detailEl = row.querySelector('.meal-detail');
+  timeEl.addEventListener('input', () => { m.t = timeEl.innerText.trim(); scheduleSave(); });
+  nameEl.addEventListener('input', () => { m.n = nameEl.innerText.trim(); scheduleSave(); });
+  detailEl.addEventListener('input', () => { m.d = detailEl.innerText.trim(); scheduleSave(); });
+  timeEl.addEventListener('keydown', e => { if(e.key==='Enter'){e.preventDefault();timeEl.blur();} });
   row.querySelector('.row-del').addEventListener('click', () => {
     defaultMealDays[di].meals.splice(mi, 1);
     renderMeals();
@@ -713,7 +720,12 @@ function buildTipEl(ti, tip) {
     <div class="tip-title" contenteditable="true" spellcheck="false">${tip.title}</div>
     <div class="tip-body" contenteditable="true" spellcheck="false">${tip.body}</div>
   </div>
-  <button class="del-btn" style="font-size:14px" onclick="removeTip(${ti})" title="删除">✕</button>`;
+  <button class="del-btn" style="font-size:14px" title="删除">✕</button>`;
+  const titleEl = card.querySelector('.tip-title');
+  const bodyEl = card.querySelector('.tip-body');
+  titleEl.addEventListener('input', () => { tip.title = titleEl.innerText.trim(); scheduleSave(); });
+  bodyEl.addEventListener('input', () => { tip.body = bodyEl.innerText.trim(); scheduleSave(); });
+  card.querySelector('.del-btn').addEventListener('click', () => { removeTip(ti); });
   return card;
 }
 
@@ -791,7 +803,8 @@ function importData(event) {
         });
       }
       updateGearProgress();
-      alert('✅ 导入成功！');
+      saveToLocal();
+      alert('✅ 导入成功！数据已保存到浏览器。');
     } catch(err) { alert('导入失败，请确认文件格式正确。'); }
   };
   reader.readAsText(file);
