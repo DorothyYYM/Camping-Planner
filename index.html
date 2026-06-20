@@ -829,16 +829,17 @@ function importData(event) {
   event.target.value = '';
 }
 
-// ── Auto Save ──
-const STORAGE_KEY = 'camping-planner-data';
+// ── Firebase Realtime Sync ──
+const FIREBASE_URL = 'https://camping-planner-c7c57-default-rtdb.firebaseio.com/data.json';
 let saveTimer = null;
+let isSyncing = false;
 
 function scheduleSave() {
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(saveToLocal, 800);
+  saveTimer = setTimeout(saveToFirebase, 1000);
 }
 
-function saveToLocal() {
+async function saveToFirebase() {
   const titleEl = document.getElementById('trip-title');
   const data = {
     days: defaultDays,
@@ -853,16 +854,25 @@ function saveToLocal() {
     if (cb.id) data.checks[cb.id] = cb.checked;
   });
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    showSaveIndicator();
-  } catch(e) {}
+    await fetch(FIREBASE_URL, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    showSaveIndicator('✓ 已同步');
+  } catch(e) {
+    showSaveIndicator('⚠️ 同步失败');
+  }
 }
 
-function loadFromLocal() {
+function saveToLocal() { saveToFirebase(); }
+
+async function loadFromFirebase() {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (!saved) return false;
-    const data = JSON.parse(saved);
+    const res = await fetch(FIREBASE_URL);
+    if (!res.ok) return false;
+    const data = await res.json();
+    if (!data) return false;
     if (data.days) defaultDays.splice(0, defaultDays.length, ...data.days);
     if (data.gearGroups) gearGroups.splice(0, gearGroups.length, ...data.gearGroups);
     if (data.foodGroups) foodGroups.splice(0, foodGroups.length, ...data.foodGroups);
@@ -876,7 +886,9 @@ function loadFromLocal() {
   } catch(e) { return false; }
 }
 
-function showSaveIndicator() {
+function loadFromLocal() { return false; }
+
+function showSaveIndicator(msg) {
   let el = document.getElementById('save-indicator');
   if (!el) {
     el = document.createElement('div');
@@ -884,7 +896,7 @@ function showSaveIndicator() {
     el.style.cssText = 'font-size:11px;color:#1D9E75;margin-top:4px;height:16px;';
     document.querySelector('.header').appendChild(el);
   }
-  el.textContent = '✓ 已自动保存';
+  el.textContent = msg || '✓ 已自动保存';
   clearTimeout(el._timer);
   el._timer = setTimeout(() => { el.textContent = ''; }, 2000);
 }
@@ -893,28 +905,30 @@ function showSaveIndicator() {
 const _origSaveEvent = typeof saveEvent !== 'undefined' ? saveEvent : null;
 
 // ── Init ──
-const savedChecks = loadFromLocal();
-renderItinerary();
-rebuildCheckGrid('gear-grid', gearGroups, true);
-rebuildCheckGrid('food-grid', foodGroups, false);
-renderMeals();
-renderTips();
-// Restore saved checkbox states
-if (savedChecks) {
-  Object.entries(savedChecks).forEach(([id, checked]) => {
-    const cb = document.getElementById(id);
-    if (cb) {
-      cb.checked = checked;
-      if (checked) cb.closest('.check-item')?.querySelector('.check-label')?.classList.add('done');
-    }
-  });
-  updateGearProgress();
-  gearGroups.forEach((_,gi) => updateGroupCount('gear-grid', gi, gearGroups[gi].items.length));
+async function init() {
+  showSaveIndicator('⏳ 加载中...');
+  const savedChecks = await loadFromFirebase();
+  renderItinerary();
+  rebuildCheckGrid('gear-grid', gearGroups, true);
+  rebuildCheckGrid('food-grid', foodGroups, false);
+  renderMeals();
+  renderTips();
+  if (savedChecks) {
+    Object.entries(savedChecks).forEach(([id, checked]) => {
+      const cb = document.getElementById(id);
+      if (cb) {
+        cb.checked = checked;
+        if (checked) cb.closest('.check-item')?.querySelector('.check-label')?.classList.add('done');
+      }
+    });
+    updateGearProgress();
+    gearGroups.forEach((_,gi) => updateGroupCount('gear-grid', gi, gearGroups[gi].items.length));
+  }
+  showSaveIndicator('✓ 已加载');
+  document.addEventListener('input', scheduleSave);
+  document.addEventListener('change', scheduleSave);
 }
-
-// ── Global auto-save: catch everything ──
-document.addEventListener('input', scheduleSave);
-document.addEventListener('change', scheduleSave);
+init();
 </script>
 </body>
 </html>
