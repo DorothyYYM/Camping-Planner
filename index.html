@@ -366,7 +366,13 @@ function renderEvent(di, ei, ev) {
       <div class="tl-desc" contenteditable="true" spellcheck="false" oninput="saveEvent(${di},${ei},this.closest('.tl-item'))">${ev.desc}</div>
 
     </div>
-    <button class="del-btn" onclick="removeEvent(${di},${ei})" title="删除">✕</button>`;
+    <button class="del-btn" title="删除">✕</button>`;
+  item.querySelector('.del-btn').addEventListener('click', () => {
+    const idx = defaultDays[di].events.indexOf(ev);
+    if (idx > -1) defaultDays[di].events.splice(idx, 1);
+    item.remove();
+    saveToLocal();
+  });
 
   // drag events
   item.addEventListener('dragstart', e => {
@@ -587,8 +593,12 @@ function buildCheckItemEl(gridId, gi, ii, item, isGear) {
     scheduleSave();
   });
   row.querySelector('.item-del').addEventListener('click', () => {
-    (isGear ? gearGroups : foodGroups)[gi].items.splice(ii, 1);
-    rebuildCheckGrid(gridId, isGear ? gearGroups : foodGroups, isGear);
+    const store = isGear ? gearGroups : foodGroups;
+    const idx = store[gi].items.indexOf(item);
+    if (idx > -1) store[gi].items.splice(idx, 1);
+    row.remove();
+    updateGroupCount(gridId, gi, store[gi].items.length);
+    if (isGear) updateGearProgress();
     saveToLocal();
   });
 
@@ -662,15 +672,14 @@ function renderMeals() {
     const box = document.createElement('div');
     box.className = 'meal-box';
     box.id = `meal-box-${di}`;
-    day.meals.forEach((m, mi) => box.appendChild(buildMealRow(di, mi, m)));
+    day.meals.forEach(m => box.appendChild(buildMealRow(day, m)));
     const addBtn = document.createElement('button');
     addBtn.className = 'add-meal-btn';
     addBtn.textContent = '＋ 新增餐食';
     addBtn.onclick = () => {
       const m = { t: '新餐次', n: '点击编辑菜名', d: '' };
-      defaultMealDays[di].meals.push(m);
-      const mi = defaultMealDays[di].meals.length - 1;
-      const row = buildMealRow(di, mi, m);
+      day.meals.push(m);
+      const row = buildMealRow(day, m);
       box.insertBefore(row, addBtn);
       const nameEl = row.querySelector('.meal-time');
       nameEl.focus();
@@ -678,6 +687,7 @@ function renderMeals() {
       range.selectNodeContents(nameEl);
       window.getSelection().removeAllRanges();
       window.getSelection().addRange(range);
+      saveToLocal();
     };
     box.appendChild(addBtn);
     col.appendChild(box);
@@ -686,7 +696,7 @@ function renderMeals() {
   wrap.appendChild(grid);
 }
 
-function buildMealRow(di, mi, m) {
+function buildMealRow(day, m) {
   const row = document.createElement('div');
   row.className = 'meal-row';
   row.innerHTML = `<div class="meal-time" contenteditable="true" spellcheck="false">${m.t}</div>
@@ -701,7 +711,8 @@ function buildMealRow(di, mi, m) {
   detailEl.addEventListener('input', () => { m.d = detailEl.innerText.trim(); scheduleSave(); });
   timeEl.addEventListener('keydown', e => { if(e.key==='Enter'){e.preventDefault();timeEl.blur();} });
   row.querySelector('.row-del').addEventListener('click', () => {
-    defaultMealDays[di].meals.splice(mi, 1);
+    const idx = day.meals.indexOf(m);
+    if (idx > -1) day.meals.splice(idx, 1);
     row.remove();
     saveToLocal();
   });
@@ -728,7 +739,8 @@ function buildTipEl(ti, tip) {
   titleEl.addEventListener('input', () => { tip.title = titleEl.innerText.trim(); scheduleSave(); });
   bodyEl.addEventListener('input', () => { tip.body = bodyEl.innerText.trim(); scheduleSave(); });
   card.querySelector('.del-btn').addEventListener('click', () => {
-    defaultTips.splice(ti, 1);
+    const idx = defaultTips.indexOf(tip);
+    if (idx > -1) defaultTips.splice(idx, 1);
     card.remove();
     saveToLocal();
   });
