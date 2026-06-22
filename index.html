@@ -818,7 +818,14 @@ async function loadFromFirebase() {
     const data = await res.json();
     if (!data) return false;
     if (data.days) defaultDays.splice(0,defaultDays.length,...data.days);
-    if (data.gearGroups) gearGroups.splice(0,gearGroups.length,...data.gearGroups);
+    if (data.gearGroups) {
+      const cleaned = data.gearGroups.map(g => ({
+        ...g,
+        reserve: g.reserve === true || (typeof g.name === 'string' && g.name.includes('备选库')),
+        items: (g.items || []).map(i => typeof i === 'string' ? {l:i,n:''} : i)
+      }));
+      gearGroups.splice(0,gearGroups.length,...cleaned);
+    }
     if (data.foodMealDays) { foodMealDays = data.foodMealDays; }
     else if (data.mealDays) { foodMealDays = data.mealDays.map(d => ({ label:d.label, meals:d.meals.map(m=>({t:m.t,d:m.d||m.n||''})) })); }
     if (data.foodShoppingGroups) { foodShoppingGroups = data.foodShoppingGroups; }
@@ -1180,7 +1187,14 @@ function importData(event) {
     try {
       const data=JSON.parse(e.target.result);
       if(data.days) defaultDays.splice(0,defaultDays.length,...data.days);
-      if(data.gearGroups) gearGroups.splice(0,gearGroups.length,...data.gearGroups);
+      if(data.gearGroups) {
+        const cleaned = data.gearGroups.map(g => ({
+          ...g,
+          reserve: g.reserve === true || (typeof g.name === 'string' && g.name.includes('备选库')),
+          items: (g.items || []).map(i => typeof i === 'string' ? {l:i,n:''} : i)
+        }));
+        gearGroups.splice(0,gearGroups.length,...cleaned);
+      }
       if(data.foodMealDays) { foodMealDays=data.foodMealDays; }
       else if(data.mealDays) { foodMealDays=data.mealDays.map(d=>({label:d.label,meals:d.meals.map(m=>({t:m.t,d:m.d||m.n||''}))})); }
       if(data.foodShoppingGroups) { foodShoppingGroups=data.foodShoppingGroups; }
