@@ -154,8 +154,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
 </head>
 <body>
 <div class="backup-btns">
-  <button class="btn-export" onclick="exportData()">⬇ 导出</button>
-  <button class="btn-import" onclick="document.getElementById('import-input').click()">⬆ 导入</button>
+  <button class="btn-export" onclick="event.stopPropagation();exportData()">⬇ 导出</button>
+  <button class="btn-import" onclick="event.stopPropagation();document.getElementById('import-input').click()">⬆ 导入</button>
 </div>
 <div class="container">
   <div class="header">
@@ -1146,29 +1146,18 @@ function addLink() {
 function addTip() { addLink(); }
 
 function exportData() {
-  try {
-    const checks={};
-    document.querySelectorAll('input[type=checkbox]').forEach(cb=>{if(cb.id) checks[cb.id]=cb.checked;});
-    const data={days:defaultDays,gearGroups,foodMealDays,foodShoppingGroups,tips:defaultLinks,checks,notes,budgetPeople,budgetExpenses,exportedAt:new Date().toISOString()};
-    const json=JSON.stringify(data,null,2);
-    // Try Blob first, fall back to data URI
-    let url;
-    try {
-      const blob=new Blob([json],{type:'application/json'});
-      url=URL.createObjectURL(blob);
-    } catch(e) {
-      url='data:text/json;charset=utf-8,'+encodeURIComponent(json);
-    }
-    const a=document.createElement('a');
-    a.href=url;
-    a.setAttribute('download','camping-backup-'+new Date().toISOString().slice(0,10)+'.json');
-    a.style.display='none';
-    document.body.appendChild(a);
-    a.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,view:window}));
-    setTimeout(()=>{ try{URL.revokeObjectURL(url);}catch(e){} document.body.removeChild(a); },200);
-  } catch(err) {
-    alert('导出失败：'+err.message);
-  }
+  const checks={};
+  document.querySelectorAll('input[type=checkbox]').forEach(cb=>{if(cb.id) checks[cb.id]=cb.checked;});
+  const data={days:defaultDays,gearGroups,foodMealDays,foodShoppingGroups,tips:defaultLinks,checks,notes,budgetPeople,budgetExpenses,exportedAt:new Date().toISOString()};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download='camping-backup-'+new Date().toISOString().slice(0,10)+'.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 function importData(event) {
