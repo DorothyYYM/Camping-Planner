@@ -789,7 +789,20 @@ async function saveToFirebase() {
   const titleEl = document.getElementById('trip-title');
   const checks = {};
   document.querySelectorAll('input[type=checkbox]').forEach(cb => { if(cb.id) checks[cb.id]=cb.checked; });
-  const payload = { days:defaultDays, gearGroups, foodMealDays, foodShoppingGroups, tips:defaultLinks, checks, notes, budgetPeople, budgetExpenses, tripTitle: titleEl ? titleEl.innerText : '' };
+  // Deep copy to avoid reference issues
+  const payload = {
+    days: JSON.parse(JSON.stringify(defaultDays)),
+    gearGroups: JSON.parse(JSON.stringify(gearGroups)),
+    foodMealDays: JSON.parse(JSON.stringify(foodMealDays)),
+    foodShoppingGroups: JSON.parse(JSON.stringify(foodShoppingGroups)),
+    tips: JSON.parse(JSON.stringify(defaultLinks)),
+    checks,
+    notes: JSON.parse(JSON.stringify(notes)),
+    budgetPeople: JSON.parse(JSON.stringify(budgetPeople)),
+    budgetExpenses: JSON.parse(JSON.stringify(budgetExpenses)),
+    tripTitle: titleEl ? titleEl.innerText : ''
+  };
+  console.log('Saving gearGroups count:', payload.gearGroups.length);
   try {
     await fetch(FIREBASE_URL, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
     showSaved('✓ 已同步');
