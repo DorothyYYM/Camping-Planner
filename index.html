@@ -1148,11 +1148,14 @@ function addTip() { addLink(); }
 function exportData() {
   const checks={};
   document.querySelectorAll('input[type=checkbox]').forEach(cb=>{if(cb.id) checks[cb.id]=cb.checked;});
-  const data={days:defaultDays,gearGroups,foodMealDays,foodShoppingGroups,tips:defaultTips,checks,notes,budgetPeople,budgetExpenses,exportedAt:new Date().toISOString()};
-  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a'); a.href=url; a.download='camping-backup-'+new Date().toISOString().slice(0,10)+'.json';
-  a.click(); URL.revokeObjectURL(url);
+  const data={days:defaultDays,gearGroups,foodMealDays,foodShoppingGroups,tips:defaultLinks,checks,notes,budgetPeople,budgetExpenses,exportedAt:new Date().toISOString()};
+  const json=JSON.stringify(data,null,2);
+  const a=document.createElement('a');
+  a.href='data:application/json;charset=utf-8,'+encodeURIComponent(json);
+  a.download='camping-backup-'+new Date().toISOString().slice(0,10)+'.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 }
 
 function importData(event) {
