@@ -1151,15 +1151,21 @@ function exportData() {
     document.querySelectorAll('input[type=checkbox]').forEach(cb=>{if(cb.id) checks[cb.id]=cb.checked;});
     const data={days:defaultDays,gearGroups,foodMealDays,foodShoppingGroups,tips:defaultLinks,checks,notes,budgetPeople,budgetExpenses,exportedAt:new Date().toISOString()};
     const json=JSON.stringify(data,null,2);
-    const blob=new Blob([json],{type:'application/json'});
-    const url=window.URL.createObjectURL(blob);
+    // Try Blob first, fall back to data URI
+    let url;
+    try {
+      const blob=new Blob([json],{type:'application/json'});
+      url=URL.createObjectURL(blob);
+    } catch(e) {
+      url='data:text/json;charset=utf-8,'+encodeURIComponent(json);
+    }
     const a=document.createElement('a');
-    a.style.display='none';
     a.href=url;
-    a.download='camping-backup-'+new Date().toISOString().slice(0,10)+'.json';
+    a.setAttribute('download','camping-backup-'+new Date().toISOString().slice(0,10)+'.json');
+    a.style.display='none';
     document.body.appendChild(a);
-    a.click();
-    setTimeout(()=>{ window.URL.revokeObjectURL(url); document.body.removeChild(a); },100);
+    a.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,view:window}));
+    setTimeout(()=>{ try{URL.revokeObjectURL(url);}catch(e){} document.body.removeChild(a); },200);
   } catch(err) {
     alert('导出失败：'+err.message);
   }
