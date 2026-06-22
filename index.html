@@ -1146,16 +1146,23 @@ function addLink() {
 function addTip() { addLink(); }
 
 function exportData() {
-  const checks={};
-  document.querySelectorAll('input[type=checkbox]').forEach(cb=>{if(cb.id) checks[cb.id]=cb.checked;});
-  const data={days:defaultDays,gearGroups,foodMealDays,foodShoppingGroups,tips:defaultLinks,checks,notes,budgetPeople,budgetExpenses,exportedAt:new Date().toISOString()};
-  const json=JSON.stringify(data,null,2);
-  const a=document.createElement('a');
-  a.href='data:application/json;charset=utf-8,'+encodeURIComponent(json);
-  a.download='camping-backup-'+new Date().toISOString().slice(0,10)+'.json';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  try {
+    const checks={};
+    document.querySelectorAll('input[type=checkbox]').forEach(cb=>{if(cb.id) checks[cb.id]=cb.checked;});
+    const data={days:defaultDays,gearGroups,foodMealDays,foodShoppingGroups,tips:defaultLinks,checks,notes,budgetPeople,budgetExpenses,exportedAt:new Date().toISOString()};
+    const json=JSON.stringify(data,null,2);
+    const blob=new Blob([json],{type:'application/json'});
+    const url=window.URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.style.display='none';
+    a.href=url;
+    a.download='camping-backup-'+new Date().toISOString().slice(0,10)+'.json';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{ window.URL.revokeObjectURL(url); document.body.removeChild(a); },100);
+  } catch(err) {
+    alert('导出失败：'+err.message);
+  }
 }
 
 function importData(event) {
