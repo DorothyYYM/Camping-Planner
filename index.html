@@ -685,16 +685,16 @@ const DEFAULT_MEAL_DAYS = [
     "label": "周六 6月27日",
     "meals": [
       {
-        "t": "路上早餐",
-        "d": "三明治/面包、水果、咖啡（保温杯）"
+        "t": "早午饭",
+        "d": "Tim Hortons（路上解决）"
       },
       {
         "t": "下午点心",
-        "d": "坚果、能量棒、水果干、小孩饼干"
+        "d": "零食、能量棒、水果"
       },
       {
         "t": "晚餐",
-        "d": "腌制鸡腿/香肠、铝箔玉米、烤蔬菜、法棍"
+        "d": "火锅 🍲"
       }
     ]
   },
@@ -702,20 +702,16 @@ const DEFAULT_MEAL_DAYS = [
     "label": "周日 6月28日",
     "meals": [
       {
-        "t": "早餐",
-        "d": "即食燕麦 + 牛奶（盒装）、香蕉、咖啡、热可可（小孩）"
+        "t": "早午饭",
+        "d": "牛奶燕麦、玉米、红薯、中式早餐"
       },
       {
-        "t": "水上零食",
-        "d": "能量棒、坚果、苹果、防水袋装饼干、充足饮用水"
+        "t": "午饭",
+        "d": "三明治"
       },
       {
-        "t": "午餐",
-        "d": "花生酱三明治、剩余零食、水果，无需开火"
-      },
-      {
-        "t": "返程零食",
-        "d": "留一些零食供回程路上用"
+        "t": "晚饭",
+        "d": "路上自行解决"
       }
     ]
   }
@@ -723,54 +719,56 @@ const DEFAULT_MEAL_DAYS = [
 const DEFAULT_FOOD_SHOPPING = [
   {
     "icon": "❄️",
-    "name": "冷藏类（冰桶）",
+    "name": "冷藏类",
     "items": [
-      "腌好的鸡腿 / 香肠",
-      "鸡蛋（6个）",
-      "黄油小包",
-      "奶酪片"
+      "火锅底料",
+      "火锅肉片（牛肉/羊肉）",
+      "火锅丸子、鱼豆腐",
+      "豆腐",
+      "生菜 + 菠菜",
+      "金针菇 + 香菇",
+      "牛奶（盒装）",
+      "鸡蛋",
+      "三明治材料（火腿/芝士/生菜）",
+      "黄油"
     ]
   },
   {
     "icon": "🍞",
-    "name": "非冷藏 - 主食",
+    "name": "非冷藏类",
     "items": [
-      "法棍 / 皮塔饼 / 切片面包",
+      "即食燕麦",
+      "玉米（罐装或新鲜）",
+      "红薯",
+      "面包/吐司（三明治用）",
       "花生酱 + 果酱",
-      "速食燕麦包（6人份）",
-      "意大利面沙拉（提前做好）",
-      "盒装牛奶"
+      "火锅蘸酱（芝麻酱/沙茶酱）",
+      "粉丝 / 宽粉",
+      "方便面（备用）",
+      "锡纸（烤红薯玉米用）"
     ]
   },
   {
     "icon": "🍫",
     "name": "零食 & 点心",
     "items": [
+      "能量棒",
       "混合坚果",
-      "能量棒（10+根）",
-      "棉花糖 + 巧克力 + 全麦饼干",
       "水果（苹果、香蕉）",
-      "薯片（2–3袋）"
+      "薯片",
+      "棉花糖 + 巧克力 + 饼干（S'mores）",
+      "儿童零食饼干"
     ]
   },
   {
     "icon": "💧",
-    "name": "饮水",
+    "name": "水 & 饮料",
     "items": [
-      "矿泉水（大量）",
-      "运动饮料",
-      "水壶（每人）"
-    ]
-  },
-  {
-    "icon": "☕",
-    "name": "饮料 & 调料",
-    "items": [
+      "矿泉水（大量，部分冷冻放保温箱）",
+      "运动饮料（徒步补充电解质）",
+      "热可可粉（儿童用）",
       "速溶咖啡 / 茶包",
-      "热可可粉（儿童）",
-      "盐 + 胡椒 + 油",
-      "玉米（4–6根）",
-      "大量饮用水 + 冰"
+      "豆浆（盒装，中式早餐配）"
     ]
   }
 ];
@@ -828,8 +826,14 @@ async function loadFromFirebase() {
     }
     if (data.foodMealDays) { foodMealDays = data.foodMealDays; }
     else if (data.mealDays) { foodMealDays = data.mealDays.map(d => ({ label:d.label, meals:d.meals.map(m=>({t:m.t,d:m.d||m.n||''})) })); }
-    if (data.foodShoppingGroups) { foodShoppingGroups = data.foodShoppingGroups; }
-    else if (data.foodGroups) { foodShoppingGroups = data.foodGroups.map(g=>({ icon:g.icon||'🛒', name:g.name, items:(g.items||[]).map(i=>typeof i==='string'?i:i.l||'') })); }
+    if (data.foodShoppingGroups) {
+      foodShoppingGroups = data.foodShoppingGroups.map(g=>({
+        ...g,
+        items: (g.items||[]).map(i => typeof i==='string' ? i : (i && i.l ? i.l : String(i)))
+      }));
+    } else if (data.foodGroups) {
+      foodShoppingGroups = data.foodGroups.map(g=>({ icon:g.icon||'🛒', name:g.name, items:(g.items||[]).map(i=>typeof i==='string'?i:i&&i.l?i.l:'') }));
+    }
     if (data.tips) defaultLinks.splice(0,defaultLinks.length,...data.tips);
     if (data.notes) Object.assign(notes, data.notes);
     if (data.budgetPeople) { budgetPeople.splice(0,budgetPeople.length,...data.budgetPeople); }
@@ -1108,9 +1112,11 @@ function buildFoodGroupCard(group) {
 }
 
 function buildFoodItemRow(group, item) {
+  // Normalize item to string
+  const itemStr = typeof item === 'string' ? item : (item && item.l ? item.l : String(item));
   const row=document.createElement('div'); row.className='food-item-row';
   const cb=document.createElement('input'); cb.type='checkbox';
-  const ne=document.createElement('div'); ne.className='food-item-name'; ne.contentEditable='true'; ne.spellcheck=false; ne.innerText=typeof item==='string'?item:item.l||item;
+  const ne=document.createElement('div'); ne.className='food-item-name'; ne.contentEditable='true'; ne.spellcheck=false; ne.innerText=itemStr;
   ne.addEventListener('input',()=>{ const idx=group.items.indexOf(item); if(idx>-1) group.items[idx]=ne.innerText.trim(); scheduleSave(); });
   ne.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();ne.blur();}});
   cb.addEventListener('change',function(){ne.classList.toggle('done',this.checked);scheduleSave();});
@@ -1197,8 +1203,14 @@ function importData(event) {
       }
       if(data.foodMealDays) { foodMealDays=data.foodMealDays; }
       else if(data.mealDays) { foodMealDays=data.mealDays.map(d=>({label:d.label,meals:d.meals.map(m=>({t:m.t,d:m.d||m.n||''}))})); }
-      if(data.foodShoppingGroups) { foodShoppingGroups=data.foodShoppingGroups; }
-      else if(data.foodGroups) { foodShoppingGroups=data.foodGroups.map(g=>({icon:g.icon||'🛒',name:g.name,items:(g.items||[]).map(i=>typeof i==='string'?i:i.l||'')})); }
+      if(data.foodShoppingGroups) {
+        foodShoppingGroups=data.foodShoppingGroups.map(g=>({
+          ...g,
+          items:(g.items||[]).map(i=>typeof i==='string'?i:(i&&i.l?i.l:String(i)))
+        }));
+      } else if(data.foodGroups) {
+        foodShoppingGroups=data.foodGroups.map(g=>({icon:g.icon||'🛒',name:g.name,items:(g.items||[]).map(i=>typeof i==='string'?i:i&&i.l?i.l:'')}));
+      }
       if(data.tips) defaultLinks.splice(0,defaultLinks.length,...data.tips);
       if(data.notes) Object.assign(notes,data.notes);
       if(data.budgetPeople) { budgetPeople.splice(0,budgetPeople.length,...data.budgetPeople); }
